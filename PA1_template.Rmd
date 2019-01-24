@@ -1,25 +1,162 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template.Rmd"
+author: "Mohau Mateyisi"
+date: "23 January 2019"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Loading and preprocessing the data
 
+```{r}
+library(data.table);
+library(lubridate);
+library(plyr)
+
+Adata <- read.csv('file:///D:/Cousera/reproducible-research/activity.csv')
+Adata$date<- dmy(Adata$date)
+
+```
 
 
 ## What is mean total number of steps taken per day?
 
 
 
+```{r}
+dt2<-aggregate(steps ~ date , data = na.exclude(Adata), sum) 
+
+hist(dt2$steps,
+     main="Histogram of Total number of steps per day", 
+     xlab="steps", 
+     border="blue", 
+     col="green")
+
+
+
+
+names(dt2)<-c("date","TtStepsPerDay")
+ss<-summary(dt2)
+
+minim  <-unlist(strsplit(ss[,"TtStepsPerDay"][1],":"))[2]
+mediann <-unlist(strsplit(ss[,"TtStepsPerDay"][3],":"))[2]
+meanv <-unlist(strsplit(ss[,"TtStepsPerDay"][4],":"))[2]
+
+```
+
+The mean and median number of steps are `r meanv` and `r mediann` respectively. 
+
 ## What is the average daily activity pattern?
 
+Below we plot the average daily activity pattern. 
+
+```{r,echo=TRUE}
+library(ggplot2)
+dtt2<-aggregate(steps ~ interval , data = na.exclude(Adata), mean) 
+
+with(dtt2, {  
+  plot(interval, steps, type="l", xlab="inerval", ylab="Av_steps", main="Average daily activity pattern", col="red")   
+})
+
+
+maximStepsInterval <-max(dtt2$interval)
+
+# mean and median of the total number of steps per day.
+
+meann1<-mean(dtt2$steps)
+median1<- median(dtt2$steps)
+
+
+```
+
+On average the maximaum happen on the `r maximStepsInterval`th 5 minute interval.
+
+The mean and median of the total number of steps per day are `r meann1 ` and `r median1` respectively
 
 
 ## Imputing missing values
 
+The imputation method aggregate the number of steps for each day and fills the missing value
+for each day with the mean. In the case where all the values per day are missing the imputation leaves value for the day empty.
 
+```{r}
+
+
+library("imputeMissings")
+Adata1<-Adata[,c("date","steps","interval")]
+
+#impute with the median
+r<-impute(Adata1, object = NULL, method = "median/mode", flag = FALSE)
+zz<-summary(Adata)
+
+
+dtt22<-aggregate(steps ~ date , data = na.exclude(r), sum) 
+
+hist(dtt22$steps, 
+     main="Histogram of Total number of steps per day after imputation", 
+     xlab="steps", 
+     border="blue", 
+     col="green")
+
+
+ismissing <-unlist(strsplit(zz[[7]],":"))[2]
+
+
+dt22<-aggregate(steps ~ date , data = r, sum) 
+
+zz2 <- summary(dt22)
+
+mmean<- unlist(strsplit(zz2[4,][2],":"))[2]
+mmedian <-unlist(strsplit(zz2[3,][2],":"))[2]
+
+```
+
+There are about `r ismissing` missing values.
+
+The mean and median after data amputation are `r mmean`  and `r mmedian`.
+
+The imputation process leads to a lower mean and median compared that obtained before replacing NA's.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+library("ggplot2")
+library("prettyR")
+
+
+
+dt3<-r
+dt3$weekday<-weekdays(r$date)
+
+df1 = subset(dt3,dt3$weekday == "Saturday" | dt3$weekday == "Sunday")
+df1<-aggregate(steps ~ interval , data = na.exclude(df1), mean)
+df1$day<- "weekend"
+
+
+df2 = subset(dt3,dt3$weekday != "Saturday" & dt3$weekday != "Sunday")
+df2<-aggregate(steps ~ interval , data = na.exclude(df2), mean)
+df2$day<-"weekday"
+
+
+df3<-rbind(df1,df2)
+
+
+
+
+p1 <-ggplot(df3, aes(interval,steps ))
+p1 + geom_line(stat = "identity")+
+   facet_wrap( ~ day, nrow = 2) + theme(legend.position = "none") +
+   labs(title = "Comparing weekend and week day activities")+
+   theme(text = element_text(size=20),
+        axis.text.x = element_text(angle=90, hjust=1))
+
+
+
+```
+
+Between the 500 and 1000 time interval week day steps are much higher then the weekend steps. However, after the 1000 interval 5 min the average steps during the week are relatively lower than the average steps during the weekend.
+
+
